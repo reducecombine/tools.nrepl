@@ -83,49 +83,52 @@
     (if (and ns (not explicit-ns-binding))
       (t/send transport (response-for msg {:status #{:error :namespace-not-found :done}}))
       (with-bindings @bindings
-        (try
-          (clojure.main/repl
-            :eval (if eval (find-var (symbol eval)) clojure.core/eval)
-            ;; clojure.main/repl paves over certain vars even if they're already thread-bound
-            :init #(do (set! *compile-path* (@bindings #'*compile-path*))
-                     (set! *1 (@bindings #'*1))
-                     (set! *2 (@bindings #'*2))
-                     (set! *3 (@bindings #'*3))
-                     (set! *e (@bindings #'*e)))   
-            :read (if (string? code)
-                    (let [reader (source-logging-pushback-reader code line column)]
-                      (if reader-conditionals?
-                        #(read {:read-cond :allow :eof %2} reader)
-                        #(read reader false %2)))
-                    (let [code (.iterator ^Iterable code)]
-                      #(or (and (.hasNext code) (.next code)) %2)))
-            :prompt (fn [])
-            :need-prompt (constantly false)
-            ; TODO pretty-print?
-            :print (fn [v]
-                     (reset! bindings (assoc (capture-thread-bindings)
-                                             #'*3 *2
-                                             #'*2 *1
-                                             #'*1 v))
-                     (.flush ^Writer err)
-                     (.flush ^Writer out)
-                     (reset! session (maybe-restore-original-ns @bindings))
-                     (t/send transport (response-for msg
-                                                     {:value v
-                                                      :ns (-> *ns* ns-name str)})))
-            ; TODO customizable exception prints
-            :caught (fn [e]
-                      (let [root-ex (#'clojure.main/root-cause e)]
-                        (when-not (instance? ThreadDeath root-ex)
-                          (reset! bindings (assoc (capture-thread-bindings) #'*e e))
-                          (reset! session (maybe-restore-original-ns @bindings))
-                          (t/send transport (response-for msg {:status :eval-error
-                                                               :ex (-> e class str)
-                                                               :root-ex (-> root-ex class str)}))
-                          (clojure.main/repl-caught e)))))
-          (finally
-            (.flush ^Writer out)
-            (.flush ^Writer err)))))
+        ;; lein checkouts works
+        (let [ctxcl (.getContextClassLoader (Thread/currentThread))]
+          (try
+            (clojure.main/repl
+             :eval (if eval (find-var (symbol eval)) clojure.core/eval)
+             ;; clojure.main/repl paves over certain vars even if they're already thread-bound
+             :init #(do (set! *compile-path* (@bindings #'*compile-path*))
+                        (set! *1 (@bindings #'*1))
+                        (set! *2 (@bindings #'*2))
+                        (set! *3 (@bindings #'*3))
+                        (set! *e (@bindings #'*e)))   
+             :read (if (string? code)
+                     (let [reader (source-logging-pushback-reader code line column)]
+                       (if reader-conditionals?
+                         #(read {:read-cond :allow :eof %2} reader)
+                         #(read reader false %2)))
+                     (let [code (.iterator ^Iterable code)]
+                       #(or (and (.hasNext code) (.next code)) %2)))
+             :prompt (fn [])
+             :need-prompt (constantly false)
+                                        ; TODO pretty-print?
+             :print (fn [v]
+                      (reset! bindings (assoc (capture-thread-bindings)
+                                              #'*3 *2
+                                              #'*2 *1
+                                              #'*1 v))
+                      (.flush ^Writer err)
+                      (.flush ^Writer out)
+                      (reset! session (maybe-restore-original-ns @bindings))
+                      (t/send transport (response-for msg
+                                                      {:value v
+                                                       :ns    (-> *ns* ns-name str)})))
+                                        ; TODO customizable exception prints
+             :caught (fn [e]
+                       (let [root-ex (#'clojure.main/root-cause e)]
+                         (when-not (instance? ThreadDeath root-ex)
+                           (reset! bindings (assoc (capture-thread-bindings) #'*e e))
+                           (reset! session (maybe-restore-original-ns @bindings))
+                           (t/send transport (response-for msg {:status  :eval-error
+                                                                :ex      (-> e class str)
+                                                                :root-ex (-> root-ex class str)}))
+                           (clojure.main/repl-caught e)))))
+            (finally
+              (.setContextClassLoader (Thread/currentThread) ctxcl)
+              (.flush ^Writer out)
+              (.flush ^Writer err))))))
     (maybe-restore-original-ns @bindings)))
 
 (defn- configure-thread-factory
