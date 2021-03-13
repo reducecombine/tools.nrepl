@@ -1,7 +1,6 @@
-
-(ns ^{:doc "Support for persistent, cross-connection REPL sessions."
+(ns ^{:doc    "Support for persistent, cross-connection REPL sessions."
       :author "Chas Emerick"}
-     clojure.tools.nrepl.middleware.session
+    clojure.tools.nrepl.middleware.session
   (:use [clojure.tools.nrepl.misc :only (uuid response-for returning log)]
         [clojure.tools.nrepl.middleware.interruptible-eval :only (*msg*)]
         [clojure.tools.nrepl.middleware :only (set-descriptor!)])
@@ -10,7 +9,8 @@
   (:import clojure.tools.nrepl.transport.Transport
            (java.io PipedReader PipedWriter Reader Writer PrintWriter StringReader)
            clojure.lang.LineNumberingPushbackReader
-           java.util.concurrent.LinkedBlockingQueue))
+           java.util.concurrent.LinkedBlockingQueue
+           java.lang.ref.WeakReference))
 
 (def ^{:private true} sessions (atom {}))
 
@@ -140,7 +140,7 @@
   [{:keys [session transport] :as msg}]
   (let [session (create-session transport @session)
         id (-> session meta :id)]
-    (swap! sessions assoc id session)
+    (swap! sessions assoc id (WeakReference. session))
     (t/send transport (response-for msg :status :done :new-session id))))
 
 (defn- close-session
@@ -174,7 +174,7 @@
   [h]
   (fn [{:keys [op session transport out-limit] :as msg}]
     (let [the-session (if session
-                        (@sessions session)
+                        (.get (@sessions session))
                         (create-session transport))]
       (if-not the-session
         (t/send transport (response-for msg :status #{:error :unknown-session}))
