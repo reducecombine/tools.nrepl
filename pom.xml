@@ -14,10 +14,10 @@
     </license>
   </licenses>
   <scm>
-    <url>https://github.com/clojure/tools.nrepl</url>
-    <connection>scm:git:git://github.com/clojure/tools.nrepl.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/clojure/tools.nrepl.git</developerConnection>
-    <tag>13068e2833856aeb0d768d8a616571b0cdf8ddd7</tag>
+    <url>https://github.com/reducecombine/tools.nrepl</url>
+    <connection>scm:git:git://github.com/reducecombine/tools.nrepl.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/reducecombine/tools.nrepl.git</developerConnection>
+    <tag>9c9ebfffec51ffc6cca97acddbfc09f7aca693f3</tag>
   </scm>
   <build>
     <sourceDirectory>src/main/clojure</sourceDirectory>

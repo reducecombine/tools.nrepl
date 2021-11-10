@@ -27,23 +27,27 @@
   []
   (dissoc (get-thread-bindings) #'*msg* #'*eval*))
 
+(def jdk8? (->> "java.version" System/getProperty (re-find #"^1.8.")))
+
 (defn- set-line!
   [^LineNumberingPushbackReader reader line]
-  (-> FilterReader
-      ^Field (.getDeclaredField "in")
-      (doto (.setAccessible true))
-      ^LineNumberReader (.get reader)
-      (.setLineNumber line)))
+  (when jdk8?
+    (-> FilterReader
+        ^Field (.getDeclaredField "in")
+        (doto (.setAccessible true))
+        ^LineNumberReader (.get reader)
+        (.setLineNumber line))))
 
 (defn- set-column!
   [^LineNumberingPushbackReader reader column]
-  (when-let [field (->> LineNumberingPushbackReader
-                        (.getDeclaredFields)
-                        (filter #(= "_columnNumber" (.getName ^Field %)))
-                        first)]
-    (-> ^Field field
-        (doto (.setAccessible true))
-        (.set reader column))))
+  (when jdk8?
+    (when-let [field (->> LineNumberingPushbackReader
+                          (.getDeclaredFields)
+                          (filter #(= "_columnNumber" (.getName ^Field %)))
+                          first)]
+      (-> ^Field field
+          (doto (.setAccessible true))
+          (.set reader column)))))
 
 (defn- source-logging-pushback-reader
   [code line column]
