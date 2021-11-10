@@ -243,6 +243,8 @@
                (t/send transport {:status #{:interrupted}
                                   :id (:id eval-msg)
                                   :session id})
+               ;; XXX first interrupt, then wait, then stop.
+               ;; see https://github.com/nrepl/nrepl/blob/366cf7ca596f9418d96bb5d3d16f16476cb15649/src/clojure/nrepl/middleware/session.clj#L158-L180
                (.stop thread)
                (t/send transport (response-for msg :status #{:done}))))
            (t/send transport (response-for msg :status #{:error :interrupt-id-mismatch :done}))))
